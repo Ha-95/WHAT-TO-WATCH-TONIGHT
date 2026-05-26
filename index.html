@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>What Should I Watch Tonight?</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,600;1,9..144,300;1,9..144,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0e0c13; --bg2: #13101d; --bg3: #1a1626;
+    --card: rgba(255,255,255,0.04); --card-border: rgba(255,255,255,0.08);
+    --card-hover: rgba(255,255,255,0.07);
+    --accent: #e8c97a; --accent2: #c97a9e; --accent3: #7ab8c9;
+    --text: #f0ece6; --text-muted: rgba(240,236,230,0.5); --text-dim: rgba(240,236,230,0.28);
+    --radius: 18px; --radius-sm: 10px;
+    --blob-opacity: 0.18;
+    --star-show: block;
+  }
+  body.light {
+    --bg: #f5f0e8; --bg2: #ede7d9; --bg3: #e4dcd0;
+    --card: rgba(255,255,255,0.7); --card-border: rgba(0,0,0,0.08);
+    --card-hover: rgba(255,255,255,0.9);
+    --accent: #b8892a; --accent2: #a0456e; --accent3: #3a7a90;
+    --text: #1a1714; --text-muted: rgba(26,23,20,0.55); --text-dim: rgba(26,23,20,0.3);
+    --blob-opacity: 0.1;
+    --star-show: none;
+  }
+  body.light .stars { display: none; }
+  body.light .blob { opacity: var(--blob-opacity); filter: blur(120px); }
+  body.light .blob-1 { background: #d4a8f0; }
+  body.light .blob-2 { background: #f0c4a0; }
+  body.light .blob-3 { background: #a0c8e8; }
+  html { scroll-behavior: smooth; }
+  body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; min-height: 100vh; overflow-x: hidden; }
+
+  .stars { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
+  .star { position: absolute; border-radius: 50%; background: white; animation: twinkle var(--dur) ease-in-out infinite; opacity: 0; }
+  @keyframes twinkle { 0%,100%{opacity:0;transform:scale(0.8)} 50%{opacity:var(--op);transform:scale(1.1)} }
+
+  .blob { position: fixed; border-radius: 50%; filter: blur(90px); pointer-events: none; z-index: 0; opacity: 0.18; }
+  .blob-1 { width:500px;height:500px;background:#7a4fc9;top:-150px;left:-150px; }
+  .blob-2 { width:400px;height:400px;background:#c97a4f;bottom:-100px;right:-100px; }
+  .blob-3 { width:300px;height:300px;background:#4f7ac9;top:40%;left:60%; }
+
+  .app { position:relative;z-index:1;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:0 1.5rem 4rem; }
+
+  .header { text-align:center;padding:3.5rem 0 2rem;max-width:560px; }
+  .header-eyebrow { font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--accent);margin-bottom:1rem; }
+  .header h1 { font-family:'Fraunces',serif;font-size:clamp(2.2rem,6vw,3.6rem);font-weight:300;line-height:1.1;margin-bottom:1rem; }
+  .header h1 em { font-style:italic;color:var(--accent); }
+  .header p { font-size:0.95rem;color:var(--text-muted);line-height:1.7; }
+
+  .screen { display:none;width:100%;max-width:620px; }
+  .screen.active { display:block;animation:fadeUp 0.45s ease both; }
+  @keyframes fadeUp { from{opacity:0;transform:translateY(22px)} to{opacity:1;transform:translateY(0)} }
+
+  .progress-wrap { display:flex;gap:6px;margin-bottom:2rem;justify-content:center; }
+  .progress-dot { height:3px;width:36px;border-radius:99px;background:var(--card-border);transition:background 0.3s; }
+  .progress-dot.done { background:var(--accent); }
+  .progress-dot.active { background:rgba(232,201,122,0.5); }
+
+  .q-card { background:var(--card);border:0.5px solid var(--card-border);border-radius:var(--radius);padding:2rem 2rem 1.75rem;backdrop-filter:blur(20px); }
+  .q-label { font-size:11px;letter-spacing:2.5px;text-transform:uppercase;color:var(--accent);margin-bottom:0.6rem; }
+  .q-text { font-family:'Fraunces',serif;font-size:1.5rem;font-weight:300;margin-bottom:1.6rem;line-height:1.3; }
+
+  .options { display:grid;gap:10px;grid-template-columns:1fr 1fr; }
+  .options.single-col { grid-template-columns:1fr; }
+
+  .opt { display:flex;align-items:center;gap:10px;padding:0.85rem 1rem;border-radius:var(--radius-sm);border:0.5px solid var(--card-border);background:transparent;color:var(--text);font-family:'DM Sans',sans-serif;font-size:0.9rem;cursor:pointer;transition:all 0.18s ease;text-align:left; }
+  .opt:hover { background:var(--card-hover);border-color:rgba(255,255,255,0.15);transform:translateY(-1px); }
+  .opt.selected { background:rgba(232,201,122,0.1);border-color:var(--accent);color:var(--accent); }
+  .opt-icon { font-size:1.2rem;flex-shrink:0; }
+
+  .nav { display:flex;justify-content:flex-end;margin-top:1.25rem;gap:10px; }
+  .btn-back { padding:0.7rem 1.2rem;border-radius:var(--radius-sm);border:0.5px solid var(--card-border);background:transparent;color:var(--text-muted);font-family:'DM Sans',sans-serif;font-size:0.85rem;cursor:pointer;transition:all 0.18s; }
+  .btn-back:hover { background:var(--card);color:var(--text); }
+  .btn-next { padding:0.7rem 1.6rem;border-radius:var(--radius-sm);border:none;background:var(--accent);color:#0e0c13;font-family:'DM Sans',sans-serif;font-size:0.85rem;font-weight:500;cursor:pointer;transition:all 0.18s;opacity:0.35;pointer-events:none; }
+  .btn-next.ready { opacity:1;pointer-events:auto; }
+  .btn-next.ready:hover { transform:translateY(-1px);filter:brightness(1.08); }
+
+  .result-header { text-align:center;margin-bottom:2rem; }
+  .result-eyebrow { font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--accent);margin-bottom:0.6rem; }
+  .result-title { font-family:'Fraunces',serif;font-size:clamp(1.8rem,5vw,2.8rem);font-weight:300;line-height:1.2; }
+  .result-title em { font-style:italic;color:var(--accent); }
+
+  .score-badge { display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:99px;font-size:11px;background:rgba(232,201,122,0.08);border:0.5px solid rgba(232,201,122,0.2);color:var(--accent);margin-bottom:1rem; }
+
+  .show-card { background:var(--card);border:0.5px solid var(--card-border);border-radius:var(--radius);padding:1.75rem 2rem;backdrop-filter:blur(20px);margin-bottom:1rem; }
+  .show-top { display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;margin-bottom:0.5rem; }
+  .show-badges { display:flex;gap:6px;flex-wrap:wrap; }
+  .show-badge { display:inline-block;padding:3px 10px;border-radius:99px;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;font-weight:500; }
+  .badge-kdrama { background:rgba(201,122,158,0.15);color:var(--accent2);border:0.5px solid rgba(201,122,158,0.3); }
+  .badge-jdrama { background:rgba(122,184,201,0.15);color:var(--accent3);border:0.5px solid rgba(122,184,201,0.3); }
+  .badge-cdrama { background:rgba(232,201,122,0.15);color:var(--accent);border:0.5px solid rgba(232,201,122,0.3); }
+  .badge-anime  { background:rgba(150,122,201,0.15);color:#c49ae8;border:0.5px solid rgba(150,122,201,0.3); }
+  .badge-movie  { background:rgba(122,201,150,0.15);color:#7ac9a0;border:0.5px solid rgba(122,201,150,0.3); }
+  .badge-genres { background:rgba(255,255,255,0.05);color:var(--text-muted);border:0.5px solid var(--card-border);font-size:10px;padding:3px 8px;border-radius:99px; }
+
+  .show-title { font-family:'Fraunces',serif;font-size:1.9rem;font-weight:400;margin-bottom:0.4rem; }
+  .show-desc { font-size:0.9rem;color:var(--text-muted);line-height:1.7; }
+
+  .vibe-grid { display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:1rem; }
+  .vibe-card { background:var(--card);border:0.5px solid var(--card-border);border-radius:var(--radius-sm);padding:1.1rem 1.2rem;backdrop-filter:blur(20px); }
+  .vibe-label { font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--text-dim);margin-bottom:4px; }
+  .vibe-value { font-size:0.95rem;font-weight:500;color:var(--text); }
+  .vibe-emoji { font-size:1.1rem;margin-right:5px; }
+
+  .quote-card { background:rgba(232,201,122,0.05);border:0.5px solid rgba(232,201,122,0.18);border-radius:var(--radius-sm);padding:1.25rem 1.5rem;margin-bottom:1.5rem;text-align:center; }
+  .quote-text { font-family:'Fraunces',serif;font-style:italic;font-size:1.0rem;color:var(--accent);line-height:1.6; }
+
+  .result-actions { display:flex;flex-direction:column;gap:8px; }
+  .btn-another { width:100%;padding:1rem;border-radius:var(--radius-sm);border:0.5px solid rgba(232,201,122,0.3);background:rgba(232,201,122,0.06);color:var(--accent);font-family:'DM Sans',sans-serif;font-size:0.9rem;cursor:pointer;transition:all 0.2s; }
+  .btn-another:hover { background:rgba(232,201,122,0.12); }
+  .btn-reset { width:100%;padding:1rem;border-radius:var(--radius-sm);border:0.5px solid var(--card-border);background:transparent;color:var(--text-muted);font-family:'DM Sans',sans-serif;font-size:0.9rem;cursor:pointer;transition:all 0.2s; }
+  .btn-reset:hover { background:var(--card);color:var(--text); }
+
+  .theme-toggle {
+    position: fixed; top: 1.2rem; right: 1.2rem; z-index: 100;
+    background: var(--card); border: 0.5px solid var(--card-border);
+    color: var(--text-muted); border-radius: 99px;
+    padding: 6px 14px; font-size: 13px; cursor: pointer;
+    font-family: 'DM Sans', sans-serif; transition: all 0.2s;
+    backdrop-filter: blur(12px);
+  }
+  .theme-toggle:hover { color: var(--text); background: var(--card-hover); }
+</style>
+</head>
+<body>
+
+<button class="theme-toggle" onclick="toggleTheme()" id="theme-btn">☀️ Light</button>
+
+<div class="stars" id="stars"></div>
+<div class="blob blob-1"></div>
+<div class="blob blob-2"></div>
+<div class="blob blob-3"></div>
+
+<div class="app">
+  <div class="header">
+    <div class="header-eyebrow">✦ Tonight's Vibe</div>
+    <h1>What should I<br><em>watch tonight?</em></h1>
+    <p>Answer a few questions. Get your perfect drama, anime or movie — with a matching snack and drink.</p>
+  </div>
+
+  <div class="screen active" id="screen-1">
+    <div class="progress-wrap">
+      <div class="progress-dot active"></div><div class="progress-dot"></div>
+      <div class="progress-dot"></div><div class="progress-dot"></div>
+    </div>
+    <div class="q-card">
+      <div class="q-label">Question 1 of 4</div>
+      <div class="q-text">What are you in the mood for?</div>
+      <div class="options">
+        <button class="opt" data-q="category" data-v="kdrama"><span class="opt-icon">🇰🇷</span>K-Drama</button>
+        <button class="opt" data-q="category" data-v="jdrama"><span class="opt-icon">🇯🇵</span>J-Drama</button>
+        <button class="opt" data-q="category" data-v="cdrama"><span class="opt-icon">🇨🇳</span>C-Drama</button>
+        <button class="opt" data-q="category" data-v="anime"><span class="opt-icon">✨</span>Anime</button>
+        <button class="opt" data-q="category" data-v="movie"><span class="opt-icon">🎬</span>Movie</button>
+        <button class="opt" data-q="category" data-v="any"><span class="opt-icon">🎲</span>Surprise me</button>
+      </div>
+      <div class="nav"><button class="btn-next" id="next-1" onclick="goTo(2)">Next →</button></div>
+    </div>
+  </div>
+
+  <div class="screen" id="screen-2">
+    <div class="progress-wrap">
+      <div class="progress-dot done"></div><div class="progress-dot active"></div>
+      <div class="progress-dot"></div><div class="progress-dot"></div>
+    </div>
+    <div class="q-card">
+      <div class="q-label">Question 2 of 4</div>
+      <div class="q-text">What's your current mood?</div>
+      <div class="options">
+        <button class="opt" data-q="mood" data-v="heartbroken"><span class="opt-icon">💔</span>Heartbroken</button>
+        <button class="opt" data-q="mood" data-v="tired"><span class="opt-icon">😮‍💨</span>Tired & drained</button>
+        <button class="opt" data-q="mood" data-v="comfort"><span class="opt-icon">🍵</span>Need comfort</button>
+        <button class="opt" data-q="mood" data-v="chaos"><span class="opt-icon">🔥</span>Want chaos</button>
+        <button class="opt" data-q="mood" data-v="romantic"><span class="opt-icon">🌸</span>Romantic</button>
+        <button class="opt" data-q="mood" data-v="existential"><span class="opt-icon">🌙</span>Existential crisis</button>
+        <button class="opt" data-q="mood" data-v="motivated"><span class="opt-icon">⚡</span>Need motivation</button>
+        <button class="opt" data-q="mood" data-v="happy"><span class="opt-icon">☀️</span>Just happy</button>
+      </div>
+      <div class="nav">
+        <button class="btn-back" onclick="goTo(1)">← Back</button>
+        <button class="btn-next" id="next-2" onclick="goTo(3)">Next →</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="screen" id="screen-3">
+    <div class="progress-wrap">
+      <div class="progress-dot done"></div><div class="progress-dot done"></div>
+      <div class="progress-dot active"></div><div class="progress-dot"></div>
+    </div>
+    <div class="q-card">
+      <div class="q-label">Question 3 of 4</div>
+      <div class="q-text">How much time do you have?</div>
+      <div class="options single-col">
+        <button class="opt" data-q="energy" data-v="short"><span class="opt-icon">⏱️</span>Short episodes, just a few</button>
+        <button class="opt" data-q="energy" data-v="binge"><span class="opt-icon">🌙</span>Binge all night, I'm free</button>
+        <button class="opt" data-q="energy" data-v="movie"><span class="opt-icon">🎥</span>One movie and sleep</button>
+      </div>
+      <div class="nav">
+        <button class="btn-back" onclick="goTo(2)">← Back</button>
+        <button class="btn-next" id="next-3" onclick="goTo(4)">Next →</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="screen" id="screen-4">
+    <div class="progress-wrap">
+      <div class="progress-dot done"></div><div class="progress-dot done"></div>
+      <div class="progress-dot done"></div><div class="progress-dot active"></div>
+    </div>
+    <div class="q-card">
+      <div class="q-label">Question 4 of 4</div>
+      <div class="q-text">Watching alone or with someone?</div>
+      <div class="options single-col">
+        <button class="opt" data-q="company" data-v="alone"><span class="opt-icon">🛋️</span>Just me, myself, and my feelings</button>
+        <button class="opt" data-q="company" data-v="friends"><span class="opt-icon">👯</span>With friends or fam</button>
+        <button class="opt" data-q="company" data-v="partner"><span class="opt-icon">💑</span>With my partner</button>
+      </div>
+      <div class="nav">
+        <button class="btn-back" onclick="goTo(3)">← Back</button>
+        <button class="btn-next" id="next-4" onclick="showResult()">✦ Show my vibe</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="screen" id="screen-result">
+    <div class="result-header">
+      <div class="result-eyebrow">✦ Tonight's Pick</div>
+      <div class="result-title" id="result-title">Your <em>perfect</em> night</div>
+    </div>
+    <div class="show-card">
+      <div class="show-top">
+        <div class="show-badges">
+          <span class="show-badge" id="show-badge">K-Drama</span>
+          <span class="badge-genres" id="show-genres">Romance</span>
+        </div>
+        <div class="score-badge" id="score-badge">✦ perfect match</div>
+      </div>
+      <div class="show-title" id="show-title">Twenty-Five Twenty-One</div>
+      <div class="show-desc" id="show-desc"></div>
+    </div>
+    <div class="vibe-grid">
+      <div class="vibe-card"><div class="vibe-label">Drink</div><div class="vibe-value"><span class="vibe-emoji" id="drink-emoji">🍓</span><span id="drink-name">Strawberry milk</span></div></div>
+      <div class="vibe-card"><div class="vibe-label">Snack</div><div class="vibe-value"><span class="vibe-emoji" id="snack-emoji">🍜</span><span id="snack-name">Ramen</span></div></div>
+      <div class="vibe-card"><div class="vibe-label">Vibe</div><div class="vibe-value" id="vibe-tag">Emotional healing</div></div>
+      <div class="vibe-card"><div class="vibe-label">Warning</div><div class="vibe-value" id="vibe-warning">Tissues required</div></div>
+    </div>
+    <div class="quote-card"><div class="quote-text" id="quote-text"></div></div>
+    <div class="result-actions">
+      <button class="btn-another" onclick="showResult()">✦ Give me another pick</button>
+      <button class="btn-reset" onclick="resetAll()">↩ Start over</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const shows = [{"title": "Crash Landing on You", "cat": "kdrama", "genres": "Romance, Drama", "desc": "A South Korean heiress accidentally lands in North Korea and meets a reserved army officer.", "moods": ["romantic", "comfort"], "energy": ["binge"]}, {"title": "Twenty-Five Twenty-One", "cat": "kdrama", "genres": "Youth, Romance", "desc": "Two young people chase dreams and love during the late 1990s financial crisis.", "moods": ["heartbroken", "romantic"], "energy": ["binge"]}, {"title": "Reply 1988", "cat": "kdrama", "genres": "Family, Slice of Life", "desc": "Neighbors and lifelong friends grow up together in a nostalgic Seoul neighborhood.", "moods": ["comfort", "happy"], "energy": ["binge"]}, {"title": "Weak Hero Class 1", "cat": "kdrama", "genres": "Action, School", "desc": "A quiet student uses intelligence and strategy to survive brutal school violence.", "moods": ["chaos", "motivated"], "energy": ["short"]}, {"title": "Business Proposal", "cat": "kdrama", "genres": "Romantic Comedy", "desc": "A fake blind date spirals into chaos when a woman discovers her boss is her match.", "moods": ["happy", "romantic"], "energy": ["short"]}, {"title": "My Mister", "cat": "kdrama", "genres": "Drama, Healing", "desc": "Two lonely people help each other endure difficult lives and emotional pain.", "moods": ["existential", "comfort"], "energy": ["binge"]}, {"title": "Goblin", "cat": "kdrama", "genres": "Fantasy, Romance", "desc": "An immortal goblin searches for the one person who can finally end his cursed life.", "moods": ["romantic", "existential"], "energy": ["binge"]}, {"title": "Vincenzo", "cat": "kdrama", "genres": "Crime, Dark Comedy", "desc": "A mafia consigliere returns to Korea and fights corruption with stylish revenge.", "moods": ["chaos", "happy"], "energy": ["binge"]}, {"title": "Weightlifting Fairy Kim Bok-joo", "cat": "kdrama", "genres": "Youth, Sports", "desc": "A cheerful weightlifter navigates love, friendship, and college life.", "moods": ["happy", "comfort"], "energy": ["short"]}, {"title": "Itaewon Class", "cat": "kdrama", "genres": "Business, Revenge", "desc": "An ex-convict opens a bar restaurant to challenge a powerful food company.", "moods": ["motivated", "chaos"], "energy": ["binge"]}, {"title": "Hotel Del Luna", "cat": "kdrama", "genres": "Fantasy, Mystery", "desc": "A cursed hotel owner guides wandering spirits while confronting her tragic past.", "moods": ["heartbroken", "existential"], "energy": ["binge"]}, {"title": "Extraordinary Attorney Woo", "cat": "kdrama", "genres": "Legal, Slice of Life", "desc": "A brilliant autistic lawyer tackles courtroom cases and social challenges.", "moods": ["comfort", "motivated"], "energy": ["short"]}, {"title": "True Beauty", "cat": "kdrama", "genres": "Teen, Romance", "desc": "A student masters makeup to hide insecurities and finds unexpected love.", "moods": ["romantic", "happy"], "energy": ["binge"]}, {"title": "All of Us Are Dead", "cat": "kdrama", "genres": "Zombie, Thriller", "desc": "Students become trapped in a high school during a zombie outbreak.", "moods": ["chaos", "existential"], "energy": ["binge"]}, {"title": "Move to Heaven", "cat": "kdrama", "genres": "Healing, Drama", "desc": "A trauma cleaner and his uncle uncover emotional stories left behind by the dead.", "moods": ["heartbroken", "comfort"], "energy": ["short"]}, {"title": "Hometown Cha-Cha-Cha", "cat": "kdrama", "genres": "Romance, Healing", "desc": "A perfectionist dentist moves to a seaside village and falls for a carefree handyman.", "moods": ["comfort", "romantic"], "energy": ["binge"]}, {"title": "Kingdom", "cat": "kdrama", "genres": "Historical, Horror", "desc": "A crown prince investigates a mysterious plague turning citizens into monsters.", "moods": ["chaos", "motivated"], "energy": ["binge"]}, {"title": "Cheese in the Trap", "cat": "kdrama", "genres": "Psychological, Romance", "desc": "A college student becomes entangled with a mysterious and manipulative senior.", "moods": ["existential", "romantic"], "energy": ["binge"]}, {"title": "Tomorrow", "cat": "kdrama", "genres": "Fantasy, Healing", "desc": "Grim reapers save people who are on the verge of giving up on life.", "moods": ["motivated", "heartbroken"], "energy": ["short"]}, {"title": "The Glory", "cat": "kdrama", "genres": "Revenge, Thriller", "desc": "A woman meticulously plans revenge against her former school bullies.", "moods": ["chaos", "heartbroken"], "energy": ["binge"]}, {"title": "Our Beloved Summer", "cat": "kdrama", "genres": "Romance, Slice of Life", "desc": "Former lovers reunite years after filming a viral documentary together.", "moods": ["heartbroken", "comfort"], "energy": ["short"]}, {"title": "Alchemy of Souls", "cat": "kdrama", "genres": "Fantasy, Action", "desc": "A powerful assassin trapped in a weak body trains a troubled young mage.", "moods": ["chaos", "romantic"], "energy": ["binge"]}, {"title": "Because This Is My First Life", "cat": "kdrama", "genres": "Slice of Life, Romance", "desc": "Two strangers enter a contract marriage for practical reasons.", "moods": ["comfort", "existential"], "energy": ["short"]}, {"title": "Doctor Slump", "cat": "kdrama", "genres": "Healing, Comedy", "desc": "Two burned-out doctors reconnect while trying to rebuild their lives.", "moods": ["tired", "comfort"], "energy": ["short"]}, {"title": "Start-Up", "cat": "kdrama", "genres": "Business, Romance", "desc": "Young entrepreneurs compete to achieve success in Korea's tech industry.", "moods": ["motivated", "happy"], "energy": ["binge"]}, {"title": "First Love", "cat": "jdrama", "genres": "Romance, Drama", "desc": "Two former lovers reconnect years after fate separated them.", "moods": ["heartbroken", "romantic"], "energy": ["binge"]}, {"title": "Alice in Borderland", "cat": "jdrama", "genres": "Thriller, Survival", "desc": "Friends are trapped in a deadly parallel Tokyo where games decide survival.", "moods": ["chaos", "existential"], "energy": ["binge"]}, {"title": "Good Morning Call", "cat": "jdrama", "genres": "Romantic Comedy", "desc": "Two students unexpectedly end up sharing the same apartment.", "moods": ["happy", "romantic"], "energy": ["short"]}, {"title": "Silent", "cat": "jdrama", "genres": "Romance, Healing", "desc": "A woman reunites with her first love after discovering he lost his hearing.", "moods": ["heartbroken", "comfort"], "energy": ["short"]}, {"title": "Erased", "cat": "jdrama", "genres": "Mystery, Time Travel", "desc": "A struggling manga artist travels back in time to prevent tragic murders.", "moods": ["motivated", "existential"], "energy": ["short"]}, {"title": "Midnight Diner", "cat": "jdrama", "genres": "Slice of Life, Food", "desc": "A quiet diner owner listens to the stories of late-night customers.", "moods": ["comfort", "tired"], "energy": ["short"]}, {"title": "From Me to You", "cat": "jdrama", "genres": "Teen, Romance", "desc": "A shy misunderstood girl slowly opens up through friendship and love.", "moods": ["comfort", "happy"], "energy": ["short"]}, {"title": "Long Vacation", "cat": "jdrama", "genres": "Classic Romance", "desc": "An unlucky pianist and a runaway bride unexpectedly become roommates.", "moods": ["romantic", "comfort"], "energy": ["binge"]}, {"title": "Orange Days", "cat": "jdrama", "genres": "Youth, Drama", "desc": "College students form meaningful bonds while navigating uncertain futures.", "moods": ["existential", "heartbroken"], "energy": ["short"]}, {"title": "Nobuta wo Produce", "cat": "jdrama", "genres": "School, Comedy", "desc": "Two popular boys help transform a bullied girl's social life.", "moods": ["happy", "motivated"], "energy": ["short"]}, {"title": "The Full-Time Wife Escapist", "cat": "jdrama", "genres": "Romantic Comedy", "desc": "A woman enters a contract marriage that slowly turns real.", "moods": ["romantic", "happy"], "energy": ["short"]}, {"title": "One Litre of Tears", "cat": "jdrama", "genres": "Tragedy, Drama", "desc": "A teenage girl bravely faces a devastating degenerative illness.", "moods": ["heartbroken", "existential"], "energy": ["binge"]}, {"title": "Tokyo Love Story", "cat": "jdrama", "genres": "Classic Romance", "desc": "Young adults struggle with complicated relationships in Tokyo.", "moods": ["romantic", "heartbroken"], "energy": ["binge"]}, {"title": "Kimi wa Petto", "cat": "jdrama", "genres": "Comedy, Romance", "desc": "A career woman allows a younger man to live with her as her pet.", "moods": ["happy", "chaos"], "energy": ["short"]}, {"title": "Gokusen", "cat": "jdrama", "genres": "Comedy, School", "desc": "A yakuza heiress secretly becomes a high school teacher.", "moods": ["chaos", "happy"], "energy": ["binge"]}, {"title": "Unnatural", "cat": "jdrama", "genres": "Crime, Medical", "desc": "Forensic experts uncover hidden truths behind mysterious deaths.", "moods": ["motivated", "existential"], "energy": ["short"]}, {"title": "Quartet", "cat": "jdrama", "genres": "Music, Slice of Life", "desc": "Four musicians living together uncover secrets and emotional wounds.", "moods": ["comfort", "existential"], "energy": ["short"]}, {"title": "Hana Yori Dango", "cat": "jdrama", "genres": "Teen, Romance", "desc": "A strong-willed girl clashes with elite wealthy students.", "moods": ["romantic", "chaos"], "energy": ["binge"]}, {"title": "Rurouni Kenshin Begins", "cat": "jdrama", "genres": "Action, Historical", "desc": "A legendary assassin struggles with love and redemption.", "moods": ["heartbroken", "chaos"], "energy": ["movie"]}, {"title": "My Beautiful Man", "cat": "jdrama", "genres": "Psychological, Romance", "desc": "An awkward student becomes obsessed with a charismatic classmate.", "moods": ["romantic", "existential"], "energy": ["short"]}, {"title": "Trillion Game", "cat": "jdrama", "genres": "Business, Comedy", "desc": "Two ambitious friends try to conquer the business world.", "moods": ["motivated", "happy"], "energy": ["short"]}, {"title": "Life's Punchline", "cat": "jdrama", "genres": "Comedy, Youth", "desc": "Four struggling comedians chase dreams and friendship.", "moods": ["happy", "motivated"], "energy": ["short"]}, {"title": "Eye Love You", "cat": "jdrama", "genres": "Romance, Fantasy", "desc": "A woman who hears thoughts unexpectedly falls in love.", "moods": ["romantic", "comfort"], "energy": ["short"]}, {"title": "Burn the House Down", "cat": "jdrama", "genres": "Mystery, Revenge", "desc": "A young woman infiltrates a wealthy family to uncover the truth.", "moods": ["chaos", "motivated"], "energy": ["binge"]}, {"title": "Why I Dress Up for Love", "cat": "jdrama", "genres": "Slice of Life, Romance", "desc": "Young adults balance careers, identity, and modern relationships.", "moods": ["comfort", "happy"], "energy": ["short"]}, {"title": "Hidden Love", "cat": "cdrama", "genres": "Romance, Youth", "desc": "A girl quietly falls in love with her older brother's best friend.", "moods": ["romantic", "comfort"], "energy": ["binge"]}, {"title": "When I Fly Towards You", "cat": "cdrama", "genres": "Youth, Romance", "desc": "Bright students experience friendship, growth, and first love.", "moods": ["happy", "comfort"], "energy": ["short"]}, {"title": "The Untamed", "cat": "cdrama", "genres": "Fantasy, Adventure", "desc": "Two cultivators uncover dark conspiracies and tragic truths.", "moods": ["existential", "chaos"], "energy": ["binge"]}, {"title": "Love Between Fairy and Devil", "cat": "cdrama", "genres": "Fantasy, Romance", "desc": "A powerful demon unexpectedly falls for a gentle fairy.", "moods": ["romantic", "chaos"], "energy": ["binge"]}, {"title": "Reset", "cat": "cdrama", "genres": "Sci-Fi, Thriller", "desc": "Passengers relive a deadly bus explosion in a time loop.", "moods": ["chaos", "motivated"], "energy": ["short"]}, {"title": "Go Ahead", "cat": "cdrama", "genres": "Family, Slice of Life", "desc": "Three unrelated children grow up together as a loving family.", "moods": ["comfort", "heartbroken"], "energy": ["binge"]}, {"title": "Put Your Head on My Shoulder", "cat": "cdrama", "genres": "Romantic Comedy", "desc": "A clumsy student and genius physics major become roommates.", "moods": ["happy", "romantic"], "energy": ["short"]}, {"title": "Meet Yourself", "cat": "cdrama", "genres": "Healing, Drama", "desc": "A grieving woman moves to a peaceful village to heal emotionally.", "moods": ["tired", "comfort"], "energy": ["binge"]}, {"title": "Falling Into Your Smile", "cat": "cdrama", "genres": "Esports, Romance", "desc": "A gamer joins a professional esports team dominated by men.", "moods": ["motivated", "romantic"], "energy": ["short"]}, {"title": "Till the End of the Moon", "cat": "cdrama", "genres": "Fantasy, Tragedy", "desc": "A woman travels through time to stop a future devil king.", "moods": ["heartbroken", "existential"], "energy": ["binge"]}, {"title": "The Rational Life", "cat": "cdrama", "genres": "Workplace, Romance", "desc": "A successful career woman navigates work and younger love interests.", "moods": ["comfort", "romantic"], "energy": ["short"]}, {"title": "Word of Honor", "cat": "cdrama", "genres": "Martial Arts, Drama", "desc": "Two wanderers bond while uncovering dangerous secrets.", "moods": ["existential", "chaos"], "energy": ["binge"]}, {"title": "You Are My Glory", "cat": "cdrama", "genres": "Romance, Slice of Life", "desc": "An actress reconnects with her childhood crush through gaming.", "moods": ["happy", "romantic"], "energy": ["short"]}, {"title": "A Love So Beautiful", "cat": "cdrama", "genres": "Youth, Romance", "desc": "A cheerful girl openly chases her quiet classmate.", "moods": ["happy", "comfort"], "energy": ["short"]}, {"title": "The Long Ballad", "cat": "cdrama", "genres": "Historical, Action", "desc": "A princess seeks revenge after her family is overthrown.", "moods": ["motivated", "chaos"], "energy": ["binge"]}, {"title": "Lighter and Princess", "cat": "cdrama", "genres": "Romance, Drama", "desc": "Two brilliant students fall into a complicated relationship.", "moods": ["heartbroken", "romantic"], "energy": ["binge"]}, {"title": "Who Rules the World", "cat": "cdrama", "genres": "Fantasy, Action", "desc": "Legendary martial artists compete amid political conflict.", "moods": ["chaos", "motivated"], "energy": ["binge"]}, {"title": "Love O2O", "cat": "cdrama", "genres": "Gaming, Romance", "desc": "Online gaming brings two university students together.", "moods": ["happy", "romantic"], "energy": ["short"]}, {"title": "Nothing But You", "cat": "cdrama", "genres": "Sports, Romance", "desc": "A determined athlete and older manager support each other's dreams.", "moods": ["motivated", "comfort"], "energy": ["short"]}, {"title": "The Bad Kids", "cat": "cdrama", "genres": "Crime, Thriller", "desc": "Children accidentally witness a murder and become entangled in danger.", "moods": ["chaos", "existential"], "energy": ["short"]}, {"title": "Our Secret", "cat": "cdrama", "genres": "School, Romance", "desc": "Two classmates slowly grow closer through years of friendship.", "moods": ["comfort", "romantic"], "energy": ["short"]}, {"title": "Derailment", "cat": "cdrama", "genres": "Sci-Fi, Mystery", "desc": "A woman wakes up in an alternate reality after an accident.", "moods": ["existential", "chaos"], "energy": ["binge"]}, {"title": "Forever Love", "cat": "cdrama", "genres": "Youth, Romance", "desc": "Two students from different worlds support each other into adulthood.", "moods": ["happy", "motivated"], "energy": ["binge"]}, {"title": "The King's Avatar", "cat": "cdrama", "genres": "Esports, Action", "desc": "A legendary gamer rebuilds his esports career from scratch.", "moods": ["motivated", "happy"], "energy": ["binge"]}, {"title": "Legally Romance", "cat": "cdrama", "genres": "Fantasy, Comedy", "desc": "A woman revisits her university years after a strange accident.", "moods": ["comfort", "happy"], "energy": ["short"]}, {"title": "Attack on Titan", "cat": "anime", "genres": "Action, Dark Fantasy", "desc": "Humanity fights terrifying giants while uncovering disturbing truths.", "moods": ["chaos", "existential"], "energy": ["binge"]}, {"title": "Your Lie in April", "cat": "anime", "genres": "Music, Romance", "desc": "A traumatized pianist rediscovers music through a free-spirited violinist.", "moods": ["heartbroken", "romantic"], "energy": ["binge"]}, {"title": "Horimiya", "cat": "anime", "genres": "Romantic Comedy", "desc": "Two classmates reveal hidden sides of themselves outside school.", "moods": ["comfort", "happy"], "energy": ["short"]}, {"title": "Death Note", "cat": "anime", "genres": "Psychological Thriller", "desc": "A student gains a notebook that can kill anyone whose name is written in it.", "moods": ["chaos", "existential"], "energy": ["binge"]}, {"title": "Spy x Family", "cat": "anime", "genres": "Comedy, Action", "desc": "A fake family hides dangerous secrets while learning genuine love.", "moods": ["happy", "comfort"], "energy": ["short"]}, {"title": "Demon Slayer", "cat": "anime", "genres": "Action, Fantasy", "desc": "A determined boy hunts demons to save his sister.", "moods": ["motivated", "chaos"], "energy": ["binge"]}, {"title": "Fruits Basket", "cat": "anime", "genres": "Drama, Romance", "desc": "An orphaned girl changes the lives of a cursed family.", "moods": ["comfort", "heartbroken"], "energy": ["binge"]}, {"title": "Haikyuu!!", "cat": "anime", "genres": "Sports, Comedy", "desc": "A passionate volleyball player fights to prove his talent.", "moods": ["motivated", "happy"], "energy": ["binge"]}, {"title": "Steins;Gate", "cat": "anime", "genres": "Sci-Fi, Thriller", "desc": "Friends accidentally discover time travel and face devastating consequences.", "moods": ["existential", "chaos"], "energy": ["binge"]}, {"title": "Nana", "cat": "anime", "genres": "Music, Drama", "desc": "Two women with the same name chase love and dreams in Tokyo.", "moods": ["heartbroken", "existential"], "energy": ["binge"]}, {"title": "Blue Lock", "cat": "anime", "genres": "Sports, Psychological", "desc": "Young strikers compete in an intense soccer survival program.", "moods": ["motivated", "chaos"], "energy": ["binge"]}, {"title": "Your Name", "cat": "anime", "genres": "Fantasy, Romance", "desc": "Two strangers mysteriously swap bodies across time and space.", "moods": ["romantic", "existential"], "energy": ["movie"]}, {"title": "A Silent Voice", "cat": "anime", "genres": "Drama, Healing", "desc": "A former bully seeks redemption from the deaf girl he once hurt.", "moods": ["heartbroken", "comfort"], "energy": ["movie"]}, {"title": "One Punch Man", "cat": "anime", "genres": "Comedy, Action", "desc": "An overpowered hero struggles with boredom and meaning.", "moods": ["happy", "chaos"], "energy": ["short"]}, {"title": "Violet Evergarden", "cat": "anime", "genres": "Drama, Healing", "desc": "A former soldier learns to understand emotions through letter writing.", "moods": ["heartbroken", "comfort"], "energy": ["short"]}, {"title": "Chainsaw Man", "cat": "anime", "genres": "Action, Horror", "desc": "A desperate teenager merges with a chainsaw demon.", "moods": ["chaos", "existential"], "energy": ["short"]}, {"title": "Kaguya-sama: Love Is War", "cat": "anime", "genres": "Romantic Comedy", "desc": "Two genius students refuse to confess their feelings first.", "moods": ["happy", "romantic"], "energy": ["short"]}, {"title": "Monster", "cat": "anime", "genres": "Psychological, Crime", "desc": "A doctor hunts the dangerous killer whose life he once saved.", "moods": ["existential", "chaos"], "energy": ["binge"]}, {"title": "Mob Psycho 100", "cat": "anime", "genres": "Comedy, Supernatural", "desc": "A powerful psychic searches for emotional growth and normalcy.", "moods": ["comfort", "motivated"], "energy": ["short"]}, {"title": "Neon Genesis Evangelion", "cat": "anime", "genres": "Mecha, Psychological", "desc": "Teenagers pilot giant robots while battling trauma and isolation.", "moods": ["existential", "heartbroken"], "energy": ["binge"]}, {"title": "Skip and Loafer", "cat": "anime", "genres": "Slice of Life", "desc": "An optimistic country girl adjusts to high school life in Tokyo.", "moods": ["happy", "comfort"], "energy": ["short"]}, {"title": "Jujutsu Kaisen", "cat": "anime", "genres": "Action, Fantasy", "desc": "Students battle deadly curses in a dangerous supernatural world.", "moods": ["chaos", "motivated"], "energy": ["binge"]}, {"title": "The Wind Rises", "cat": "anime", "genres": "Historical, Drama", "desc": "An aircraft designer pursues beauty and dreams during wartime Japan.", "moods": ["existential", "heartbroken"], "energy": ["movie"]}, {"title": "My Dress-Up Darling", "cat": "anime", "genres": "Romantic Comedy", "desc": "A shy doll-maker bonds with a confident cosplay enthusiast.", "moods": ["romantic", "happy"], "energy": ["short"]}, {"title": "Vinland Saga", "cat": "anime", "genres": "Historical, Action", "desc": "A young warrior seeks revenge while questioning violence and purpose.", "moods": ["existential", "motivated"], "energy": ["binge"]}, {"title": "Interstellar", "cat": "movie", "genres": "Sci-Fi, Drama", "desc": "Astronauts travel through space searching for humanity's survival.", "moods": ["existential", "heartbroken"], "energy": ["movie"]}, {"title": "La La Land", "cat": "movie", "genres": "Musical, Romance", "desc": "Two dreamers fall in love while chasing careers in Los Angeles.", "moods": ["romantic", "heartbroken"], "energy": ["movie"]}, {"title": "Spirited Away", "cat": "movie", "genres": "Fantasy, Adventure", "desc": "A young girl enters a mysterious spirit world to save her parents.", "moods": ["comfort", "existential"], "energy": ["movie"]}, {"title": "Parasite", "cat": "movie", "genres": "Thriller, Dark Comedy", "desc": "A poor family infiltrates a wealthy household with unexpected consequences.", "moods": ["chaos", "existential"], "energy": ["movie"]}, {"title": "The Pursuit of Happyness", "cat": "movie", "genres": "Drama, Biography", "desc": "A struggling father fights to build a better future for his son.", "moods": ["motivated", "heartbroken"], "energy": ["movie"]}, {"title": "Everything Everywhere All at Once", "cat": "movie", "genres": "Sci-Fi, Comedy", "desc": "A woman discovers parallel universes while reconnecting with her family.", "moods": ["chaos", "existential"], "energy": ["movie"]}, {"title": "Pride and Prejudice", "cat": "movie", "genres": "Romance, Period Drama", "desc": "Elizabeth Bennet navigates love and misunderstandings in English society.", "moods": ["romantic", "comfort"], "energy": ["movie"]}, {"title": "Little Women", "cat": "movie", "genres": "Drama, Family", "desc": "Four sisters pursue dreams and love during difficult times.", "moods": ["comfort", "happy"], "energy": ["movie"]}, {"title": "Train to Busan", "cat": "movie", "genres": "Zombie, Thriller", "desc": "Passengers struggle to survive a deadly zombie outbreak on a train.", "moods": ["chaos", "heartbroken"], "energy": ["movie"]}, {"title": "The Secret Life of Walter Mitty", "cat": "movie", "genres": "Adventure, Comedy", "desc": "An ordinary man embarks on a global journey to escape routine.", "moods": ["motivated", "comfort"], "energy": ["movie"]}, {"title": "Howl's Moving Castle", "cat": "movie", "genres": "Fantasy, Romance", "desc": "A young woman cursed with old age finds magic and love.", "moods": ["romantic", "comfort"], "energy": ["movie"]}, {"title": "Whiplash", "cat": "movie", "genres": "Music, Drama", "desc": "An ambitious drummer pushes himself under a brutal instructor.", "moods": ["motivated", "chaos"], "energy": ["movie"]}, {"title": "The Truman Show", "cat": "movie", "genres": "Drama, Satire", "desc": "A man slowly realizes his life is actually a television show.", "moods": ["existential", "comfort"], "energy": ["movie"]}, {"title": "About Time", "cat": "movie", "genres": "Romance, Fantasy", "desc": "A young man uses time travel to improve love and family life.", "moods": ["romantic", "happy"], "energy": ["movie"]}, {"title": "Soul", "cat": "movie", "genres": "Animation, Philosophy", "desc": "A musician explores purpose and the meaning of life.", "moods": ["existential", "comfort"], "energy": ["movie"]}, {"title": "10 Things I Hate About You", "cat": "movie", "genres": "Teen, Romance", "desc": "A rebellious student unexpectedly falls in love.", "moods": ["happy", "romantic"], "energy": ["movie"]}, {"title": "The Devil Wears Prada", "cat": "movie", "genres": "Comedy, Fashion", "desc": "A young journalist survives the intense fashion industry.", "moods": ["motivated", "happy"], "energy": ["movie"]}, {"title": "Coraline", "cat": "movie", "genres": "Fantasy, Horror", "desc": "A curious girl discovers a creepy alternate world.", "moods": ["chaos", "existential"], "energy": ["movie"]}, {"title": "Dead Poets Society", "cat": "movie", "genres": "Drama, School", "desc": "An inspiring teacher encourages students to seize life.", "moods": ["motivated", "heartbroken"], "energy": ["movie"]}, {"title": "500 Days of Summer", "cat": "movie", "genres": "Romantic Drama", "desc": "A man reflects on a complicated failed relationship.", "moods": ["heartbroken", "existential"], "energy": ["movie"]}, {"title": "Knives Out", "cat": "movie", "genres": "Mystery, Comedy", "desc": "A detective investigates a wealthy family after a suspicious death.", "moods": ["chaos", "happy"], "energy": ["movie"]}, {"title": "The Perks of Being a Wallflower", "cat": "movie", "genres": "Coming-of-Age", "desc": "A shy teenager finds friendship and healing.", "moods": ["comfort", "heartbroken"], "energy": ["movie"]}, {"title": "Mamma Mia!", "cat": "movie", "genres": "Musical, Comedy", "desc": "A bride-to-be searches for her real father on a Greek island.", "moods": ["happy", "romantic"], "energy": ["movie"]}, {"title": "Before Sunrise", "cat": "movie", "genres": "Romance, Drama", "desc": "Two strangers spend one unforgettable night talking in Vienna.", "moods": ["romantic", "existential"], "energy": ["movie"]}, {"title": "Inside Out", "cat": "movie", "genres": "Animation, Family", "desc": "A young girl's emotions struggle to guide her through change.", "moods": ["comfort", "happy"], "energy": ["movie"]}];
+
+// Theme toggle
+function toggleTheme() {
+  const isLight = document.body.classList.toggle('light');
+  document.getElementById('theme-btn').textContent = isLight ? '🌙 Dark' : '☀️ Light';
+}
+
+// Stars
+const starsEl = document.getElementById('stars');
+for(let i=0;i<120;i++){
+  const s=document.createElement('div'); s.className='star';
+  const sz=Math.random()*2.5+0.5;
+  s.style.cssText=`width:${sz}px;height:${sz}px;top:${Math.random()*100}%;left:${Math.random()*100}%;--dur:${Math.random()*4+2}s;--op:${Math.random()*0.7+0.1};animation-delay:${Math.random()*5}s`;
+  starsEl.appendChild(s);
+}
+
+// State
+const answers = { category:null, mood:null, energy:null, company:null };
+let history = [];
+
+// Vibes config
+const vibes = {
+  heartbroken:{ drink:["🍓","Strawberry milk"], snack:["🍜","Ramen + soft egg"], tag:"Emotional healing with suffering", warning:"Tissues on standby", quotes:["Some stories don't end, they just change shape.","Crying is just your heart speaking louder.","Healing isn't linear, but it happens."] },
+  tired:{ drink:["🍵","Warm chamomile tea"], snack:["🥐","Butter croissant"], tag:"Low effort, high emotion", warning:"You might fall asleep (that's ok)", quotes:["Rest is productive.","Soft things for soft days.","You don't have to do anything tonight."] },
+  comfort:{ drink:["🥛","Hot cocoa"], snack:["🍿","Popcorn + blanket"], tag:"Warm like a hug", warning:"May cause sudden happiness", quotes:["Home is wherever you feel safe.","Some stories feel like a warm hand.","Tonight is for you."] },
+  chaos:{ drink:["🧃","Energy drink or boba"], snack:["🌮","Chips + hot sauce"], tag:"Absolutely unhinged (in a good way)", warning:"Sleep is optional", quotes:["Chaos is just order waiting to be found.","When life is wild, watch something wilder.","No regrets, only plot twists."] },
+  romantic:{ drink:["🌸","Iced pink lemonade"], snack:["🍓","Strawberries + chocolate"], tag:"Soft love hours", warning:"Will make you text someone", quotes:["Love is just two people refusing to give up.","Some feelings only exist in second chances.","Tonight, let yourself feel it all."] },
+  existential:{ drink:["☕","Black coffee"], snack:["🍫","Dark chocolate"], tag:"Midnight thoughts, no regrets", warning:"You will stare at the ceiling after", quotes:["Some questions are better felt than answered.","The best stories leave you changed.","3am thoughts hit different with good fiction."] },
+  motivated:{ drink:["🍋","Lemon water or iced Americano"], snack:["🥜","Mixed nuts + fruit"], tag:"Main character energy", warning:"You might plan your whole life tonight", quotes:["Every story starts with someone who didn't give up.","Go get it.","Your era starts now."] },
+  happy:{ drink:["🧋","Boba tea"], snack:["🧇","Waffles or pancakes"], tag:"Soft happiness", warning:"Smiling for no reason afterwards", quotes:["Good days deserve good stories.","Happiness is the best genre.","Ride this feeling."] }
+};
+
+// Company bonus moods
+const companyBonus = {
+  alone:    ["heartbroken","existential","tired","comfort"],
+  friends:  ["chaos","happy","motivated"],
+  partner:  ["romantic","comfort","happy"]
+};
+
+// ── SCORING SYSTEM ──────────────────────────────────────────────
+function scoreShow(show, cat, mood, energy, company) {
+  let score = 0;
+
+  // Category match (weight: 3)
+  if (cat === 'any' || show.cat === cat) score += 3;
+  else return -1; // hard exclude wrong category
+
+  // Mood match (weight: 4 primary, 2 secondary)
+  if (show.moods[0] === mood) score += 4;
+  else if (show.moods.includes(mood)) score += 2;
+
+  // Energy match (weight: 2)
+  if (show.energy.includes(energy)) score += 2;
+  else if (energy === 'binge' && show.energy.includes('short')) score += 1;
+
+  // Company bonus (weight: 1)
+  const bonusMoods = companyBonus[company] || [];
+  if (show.moods.some(m => bonusMoods.includes(m))) score += 1;
+
+  return score;
+}
+
+function showResult() {
+  const cat    = answers.category || 'any';
+  const mood   = answers.mood     || 'comfort';
+  const energy = answers.energy   || 'binge';
+  const company= answers.company  || 'alone';
+
+  // Score all shows
+  const scored = shows
+    .map(s => ({ show: s, score: scoreShow(s, cat, mood, energy, company) }))
+    .filter(x => x.score > 0)
+    .sort((a,b) => b.score - a.score);
+
+  if (!scored.length) { alert("No matches — try different answers!"); return; }
+
+  // Pick from top tier (within 2 points of max score), avoid recent history
+  const maxScore = scored[0].score;
+  const topTier  = scored.filter(x => x.score >= maxScore - 2 && !history.includes(x.show.title));
+  const pool     = topTier.length ? topTier : scored.filter(x => x.score >= maxScore - 2);
+
+  const picked = pool[Math.floor(Math.random() * pool.length)];
+  const show   = picked.show;
+
+  // Track history (last 5)
+  history.push(show.title);
+  if (history.length > 5) history.shift();
+
+  // Score label
+  const scoreLabel = picked.score >= 8 ? "✦ perfect match" : picked.score >= 6 ? "✦ great match" : "✦ good pick";
+
+  // Populate result
+  const badgeClass = { kdrama:'badge-kdrama', jdrama:'badge-jdrama', cdrama:'badge-cdrama', anime:'badge-anime', movie:'badge-movie' }[show.cat];
+  const badgeLabel = { kdrama:'K-Drama', jdrama:'J-Drama', cdrama:'C-Drama', anime:'Anime', movie:'Movie' }[show.cat];
+
+  document.getElementById('show-badge').className = 'show-badge ' + badgeClass;
+  document.getElementById('show-badge').textContent = badgeLabel;
+  document.getElementById('show-genres').textContent = show.genres;
+  document.getElementById('score-badge').textContent = scoreLabel;
+  document.getElementById('show-title').textContent  = show.title;
+  document.getElementById('show-desc').textContent   = show.desc;
+
+  const v = vibes[mood] || vibes.comfort;
+  document.getElementById('drink-emoji').textContent = v.drink[0];
+  document.getElementById('drink-name').textContent  = v.drink[1];
+  document.getElementById('snack-emoji').textContent = v.snack[0];
+  document.getElementById('snack-name').textContent  = v.snack[1];
+  document.getElementById('vibe-tag').textContent    = v.tag;
+  document.getElementById('vibe-warning').textContent= v.warning;
+  document.getElementById('quote-text').textContent  = '\u201c' + v.quotes[Math.floor(Math.random()*v.quotes.length)] + '\u201d';
+
+  const titles = ['Your <em>perfect</em> night','This is <em>the one</em>','Tonight\'s <em>vibe</em>','Made for <em>right now</em>'];
+  document.getElementById('result-title').innerHTML = titles[Math.floor(Math.random()*titles.length)];
+
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('screen-result').classList.add('active');
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+// Navigation
+function goTo(n) {
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('screen-'+n).classList.add('active');
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function resetAll() {
+  Object.keys(answers).forEach(k=>answers[k]=null);
+  history = [];
+  document.querySelectorAll('.opt').forEach(b=>b.classList.remove('selected'));
+  document.querySelectorAll('.btn-next').forEach(b=>b.classList.remove('ready'));
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('screen-1').classList.add('active');
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+// Option clicks
+document.querySelectorAll('.opt').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    const q=btn.dataset.q;
+    document.querySelectorAll(`.opt[data-q="${q}"]`).forEach(b=>b.classList.remove('selected'));
+    btn.classList.add('selected');
+    answers[q]=btn.dataset.v;
+    const map={category:'next-1',mood:'next-2',energy:'next-3',company:'next-4'};
+    if(map[q]) document.getElementById(map[q]).classList.add('ready');
+  });
+});
+</script>
+</body>
+</html>
